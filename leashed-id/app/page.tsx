@@ -1,65 +1,27 @@
-'use client'
+import Link from 'next/link'
 
-import { useCallback, type CSSProperties } from 'react'
-import { useTideCloak } from '@/lib/tide'
-import { useRouter } from 'next/navigation'
-import { useEffect } from 'react'
-
-const containerStyle: CSSProperties = {
-  minHeight: '100vh',
-  display: 'flex',
-  alignItems: 'center',
-  justifyContent: 'center',
-  background: '#f5f5f5',
-  margin: 0,
-}
-
-const cardStyle: CSSProperties = {
-  background: '#fff',
-  padding: '2rem',
-  borderRadius: '8px',
-  boxShadow: '0 4px 12px rgba(0,0,0,0.1)',
-  textAlign: 'center',
-  maxWidth: '360px',
-  width: '100%',
-}
-
-const buttonStyle: CSSProperties = {
-  marginTop: '1rem',
-  padding: '0.75rem 1.5rem',
-  fontSize: '1rem',
-  borderRadius: '4px',
-  border: 'none',
-  background: '#0070f3',
-  color: '#fff',
-  cursor: 'pointer',
-}
-
-export default function LoginPage() {
-  const { login, authenticated } = useTideCloak()
-  const router = useRouter()
-
-  const onLogin = useCallback(() => {
-    login()
-  }, [login])
-
-  useEffect(() => {
-    if (authenticated) {
-      router.push('/home')
-    }
-  }, [authenticated])
-
+// Landing (FR-8.3): the idea in 3 lines, and where to look.
+export default function LandingPage() {
   return (
-    <div style={containerStyle}>
-        <div style={cardStyle}>
-          <h1 style={{ margin: 0, fontSize: '1.75rem' }}>Welcome!</h1>
-          <p style={{ color: '#555', marginTop: '0.5rem' }}>
-            Please log in to continue.
-          </p>
-          <button onClick={onLogin} style={buttonStyle}>
-            Log In
-          </button>
+    <main className="page">
+      <p className="eyebrow">Tide UNLOCKED · Challenge 2</p>
+      <h1>Hand your ID paperwork to an AI, not your whole ID.</h1>
+      <div className="card" style={{ marginTop: 20 }}>
+        <ol style={{ margin: 0, paddingLeft: 22, fontSize: '1.05rem', lineHeight: 1.7 }}>
+          <li>Your CCCD is stored field by field as ciphertext. The server never sees the values.</li>
+          <li>The AI agent&apos;s account can decrypt your name, date of birth and ID number, but holds no decrypt role for your home address.</li>
+          <li>When a hostile form tricks the agent into asking for the address, the Tide network refuses. The app&apos;s code never makes that call.</li>
+        </ol>
+        <div className="row" style={{ marginTop: 20 }}>
+          <Link href="/agent" className="btn">Open the Agent console</Link>
+          <Link href="/hotel?reveal=1">See the hostile hotel form</Link>
+          <Link href="/vault">See what the server stores</Link>
         </div>
-    </div>
+      </div>
+      <p className="muted small">
+        The agent cannot decrypt any field it was not granted. Widening its leash means a new role, and in
+        TideCloak a role grant waits for a quorum of admins to approve it.
+      </p>
+    </main>
   )
 }

@@ -57,6 +57,7 @@ h2 { font-size: 1.3rem; margin: 0 0 6px; }
   display: inline-flex; align-items: center; gap: 6px;
   padding: 10px 18px; border: 1px solid var(--primary); border-radius: 8px;
   background: var(--primary); color: #fff; font: inherit; font-weight: 600; cursor: pointer;
+  text-decoration: none;
 }
 .btn:hover:not(:disabled) { background: var(--primary-hover); }
 .btn:disabled { opacity: 0.55; cursor: default; }
