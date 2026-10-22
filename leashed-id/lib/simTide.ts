@@ -11,9 +11,13 @@
 //      browser encrypts and decrypts the value itself, so no ID value reaches
 //      this server.
 //
+//   3. Quorum approvals (QEA): a role change made by an admin becomes a PENDING
+//      change request, and applies only once enough admins approve it.
+//
 // Honest limits: one whole key (fabricSecret) sits in data/sim-tidecloak.json,
 // which real Tide never allows (Tide invariant I-01: keys only ever exist as
-// threshold shards across the network). There is no password and no quorum.
+// threshold shards across the network). There is no password, and approvals
+// are recorded, not signed in a Tide enclave.
 
 import crypto from "crypto"
 import fs from "fs"
@@ -28,17 +32,47 @@ const TOKEN_LIFESPAN_SECONDS = 3600
 
 const STATE_FILE = path.join(process.cwd(), "data", "sim-tidecloak.json")
 
+// The simulated realm's admins. As in TideCloak, they hold the realm-management
+// client role tide-realm-admin, and the MultiAdmin quorum is
+// max(1, floor(0.7 × admins)): 2 of 3.
+export const SIM_ADMINS = ["admin1", "admin2", "admin3"]
+export const SIM_THRESHOLD = Math.max(1, Math.floor(0.7 * SIM_ADMINS.length))
+const ADMIN_CLIENT = "realm-management"
+const ADMIN_ROLE = "tide-realm-admin"
+
 type SimUser = { id: string; vuid: string; createdAt: string; grants: string[] }
+
+// Field names follow TideCloak's /iga/change-requests objects. APPROVED means applied.
+export type SimChangeRequest = {
+  id: string
+  entityType: "USER"
+  entityId: string
+  actionType: "GRANT_ROLES" | "REVOKE_ROLES"
+  status: "PENDING" | "APPROVED" | "DENIED"
+  requestedBy: string
+  createdAt: string
+  resolvedAt?: string
+  resolvedBy?: string
+  rows: { username: string; role: string }
+  authorizers: { username: string; timestamp: string }[]
+  threshold: number
+  denyReason?: string
+}
+
 type SimState = {
   signingKey: { kid: string; privateJwk: crypto.JsonWebKey; publicJwk: crypto.JsonWebKey }
   fabricSecret: string
   users: Record<string, SimUser>
+  changeRequests: SimChangeRequest[]
 }
 
 // Route handlers are bundled separately, so the file on disk (not module state)
 // is the one shared copy of the simulated realm.
 function loadState(): SimState {
-  if (fs.existsSync(STATE_FILE)) return JSON.parse(fs.readFileSync(STATE_FILE, "utf-8"))
+  if (fs.existsSync(STATE_FILE)) {
+    const state = JSON.parse(fs.readFileSync(STATE_FILE, "utf-8"))
+    return { ...state, changeRequests: state.changeRequests ?? [] }
+  }
   const { privateKey, publicKey } = crypto.generateKeyPairSync("ec", { namedCurve: "P-256" })
   const state: SimState = {
     signingKey: {
@@ -48,6 +82,7 @@ function loadState(): SimState {
     },
     fabricSecret: crypto.randomBytes(32).toString("base64"),
     users: {},
+    changeRequests: [],
   }
   saveState(state)
   return state
@@ -122,6 +157,9 @@ export function issueSimToken(rawUsername: string) {
     vuid: user.vuid,
     tideuserkey: "SIMULATED",
     realm_access: { roles },
+    ...(SIM_ADMINS.includes(username) && {
+      resource_access: { [ADMIN_CLIENT]: { roles: [ADMIN_ROLE, "manage-realm"] } },
+    }),
     sim: true,
   }
   const signingInput = `${b64url(JSON.stringify({ alg: "ES256", typ: "JWT", kid: state.signingKey.kid }))}.${b64url(JSON.stringify(payload))}`
@@ -130,7 +168,12 @@ export function issueSimToken(rawUsername: string) {
   return { access_token: `${signingInput}.${b64url(signature)}`, token_type: "Bearer", expires_in: TOKEN_LIFESPAN_SECONDS }
 }
 
-type Claims = { vuid?: string; realm_access?: { roles?: string[] } }
+type Claims = {
+  vuid?: string
+  preferred_username?: string
+  realm_access?: { roles?: string[] }
+  resource_access?: Record<string, { roles?: string[] }>
+}
 
 // Self-encryption: the key is bound to the account (vuid) AND the tag, so another
 // account, or another tag's ciphertext, cannot be unwrapped.
@@ -170,4 +213,105 @@ export function simUnwrapKey(claims: Claims, tag: string, wrappedB64: string) {
   } catch {
     throw new SimTideError(`SIMULATED Tide network: ciphertext is not bound to this account and tag ${tag}`, 400)
   }
+}
+
+// ─── Quorum approvals (QEA) ──────────────────────────────────────────────────
+
+function requireAdmin(claims: Claims): string {
+  if (!claims.resource_access?.[ADMIN_CLIENT]?.roles?.includes(ADMIN_ROLE)) {
+    throw new SimTideError(`Forbidden: only realm admins (${SIM_ADMINS.join(", ")}) can manage roles and change requests`, 403)
+  }
+  return String(claims.preferred_username)
+}
+
+// Plain realm roles an admin can grant: everything in init/realm.json except composites.
+function assignableRoles(): string[] {
+  return (realm.roles.realm as RealmRole[]).filter((r) => !r.composites).map((r) => r.name)
+}
+
+export function simRealmOverview(claims: Claims) {
+  const you = requireAdmin(claims)
+  const state = loadState()
+  return {
+    you,
+    admins: SIM_ADMINS,
+    threshold: SIM_THRESHOLD,
+    roles: assignableRoles(),
+    users: Object.entries(state.users).map(([username, u]) => ({ username, admin: SIM_ADMINS.includes(username), grants: u.grants })),
+    changeRequests: [...state.changeRequests].reverse(),
+  }
+}
+export type SimRealmOverview = ReturnType<typeof simRealmOverview>
+
+// An admin's role change does not apply: it is captured as a PENDING change request (TideCloak answers 202).
+export function simRequestRoleChange(claims: Claims, actionType: SimChangeRequest["actionType"], username: string, role: string) {
+  const admin = requireAdmin(claims)
+  const state = loadState()
+  const user = state.users[username]
+  if (!user) throw new SimTideError(`No user ${username}: they need to sign in once first`, 404)
+  if (!assignableRoles().includes(role)) throw new SimTideError(`Unknown realm role ${role}`, 400)
+  if (actionType === "GRANT_ROLES" && (defaultRealmRoles().includes(role) || user.grants.includes(role))) {
+    throw new SimTideError(`${username} already holds ${role}`, 409)
+  }
+  if (actionType === "REVOKE_ROLES" && !user.grants.includes(role)) {
+    throw new SimTideError(`${role} was never granted to ${username}${defaultRealmRoles().includes(role) ? " (it comes from the default roles)" : ""}`, 409)
+  }
+  const conflict = state.changeRequests.find((cr) => cr.status === "PENDING" && cr.entityId === user.id)
+  if (conflict) {
+    throw new SimTideError(`PENDING_CHANGE_REQUEST_CONFLICT: ${username} already has pending change request ${conflict.id}`, 409)
+  }
+  const cr: SimChangeRequest = {
+    id: crypto.randomUUID(),
+    entityType: "USER",
+    entityId: user.id,
+    actionType,
+    status: "PENDING",
+    requestedBy: admin,
+    createdAt: new Date().toISOString(),
+    rows: { username, role },
+    authorizers: [],
+    threshold: SIM_THRESHOLD,
+  }
+  state.changeRequests.push(cr)
+  saveState(state)
+  return cr
+}
+
+// Credited to the calling admin, once each; applies the change when the quorum is met.
+export function simApproveChangeRequest(claims: Claims, id: string) {
+  const admin = requireAdmin(claims)
+  const state = loadState()
+  const cr = state.changeRequests.find((c) => c.id === id)
+  if (!cr) throw new SimTideError(`No change request ${id}`, 404)
+  if (cr.status !== "PENDING") throw new SimTideError(`Change request is ${cr.status}, not PENDING`, 409)
+  if (cr.authorizers.some((a) => a.username === admin)) throw new SimTideError(`${admin} already approved this change request`, 409)
+
+  cr.authorizers.push({ username: admin, timestamp: new Date().toISOString() })
+  const committed = cr.authorizers.length >= cr.threshold
+  if (committed) {
+    const user = state.users[cr.rows.username]
+    user.grants = cr.actionType === "GRANT_ROLES"
+      ? [...new Set([...user.grants, cr.rows.role])]
+      : user.grants.filter((r) => r !== cr.rows.role)
+    cr.status = "APPROVED"
+    cr.resolvedAt = new Date().toISOString()
+    cr.resolvedBy = admin
+  }
+  saveState(state)
+  return { mode: "recorded", committed, authorizationCount: cr.authorizers.length, threshold: cr.threshold, status: cr.status }
+}
+
+// Unlike TideCloak's deny, this refuses anything but a PENDING request, so it can never relabel an applied change.
+export function simDenyChangeRequest(claims: Claims, id: string, reason: string) {
+  const admin = requireAdmin(claims)
+  const state = loadState()
+  const cr = state.changeRequests.find((c) => c.id === id)
+  if (!cr) throw new SimTideError(`No change request ${id}`, 404)
+  if (cr.status !== "PENDING") throw new SimTideError(`Change request is ${cr.status}, not PENDING`, 409)
+  cr.status = "DENIED"
+  cr.resolvedAt = new Date().toISOString()
+  cr.resolvedBy = admin
+  cr.denyReason = reason.slice(0, 300) || undefined
+  saveState(state)
+  return cr
 }

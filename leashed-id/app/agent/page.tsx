@@ -389,6 +389,13 @@ function RolesCard() {
           })}
         </tbody>
       </table>
+      <p className="muted small" style={{ marginBottom: 0 }}>
+        Widening the leash means granting <code>{tagRole('cccd_address', 'selfdecrypt')}</code>, which waits for a
+        quorum of admins to approve it
+        {TIDE_MODE === 'simulated'
+          ? <> (<Link href="/sim-tidecloak/admin">Approvals</Link>)</>
+          : ' in the TideCloak admin console'}. A granted role reaches this token at the next login.
+      </p>
     </section>
   )
 }

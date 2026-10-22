@@ -37,7 +37,7 @@ The 2-minute demo:
 2. `/agent`: **Encrypt and save** loads the fake CCCD once, and only ciphertext reaches the server. The token roles panel shows 3 green decrypt roles and a grey address role.
 3. `/hotel?reveal=1`: the hotel's form hides an instruction for AI assistants and an extra address field.
 4. `/agent`: **Run agent**. The step log shows (1) the exact payload sent to the LLM (labels only), (2) the field-to-tag mapping, (3) one decrypt request per tag, and (4) the filled form. Name, date of birth and ID number fill. The address request ends in a red **Denied by Tide network** banner, with the verbatim error from `doDecrypt` in the Developer panel. Turning on **Simulate compromised agent** forces the address request even when the model resists the injection.
-5. `/vault`: ciphertext only.
+5. `/vault`: ciphertext only. Then the leash: an admin assigns `_tide_cccd_address.selfdecrypt` to the agent, and it lands as a **pending change request, 0 of 2 approvals** (quorum 2 of 3). Nothing changes for the agent until two admins approve it.
 
 ## Setup
 
@@ -53,6 +53,8 @@ npm run dev             # http://localhost:3000
 ```
 
 Open http://localhost:3000, click **Log in**, and sign in as `agent` (no password in simulated mode). Then go to the Agent console. Without `ANTHROPIC_API_KEY`, the run uses the keyword mapper and shows an amber "LLM offline: keyword mapper" chip.
+
+For the quorum step, log out and sign in as `admin1` (the realm admins are `admin1`, `admin2` and `admin3`). Under **Approvals**, assign `_tide_cccd_address.selfdecrypt` to `agent`: it waits as a pending change request. For the video, do not approve it. If someone does, the agent decrypts the address after its next login, and removing the role again also needs 2 of 3 admins.
 
 ### Real TideCloak (once Tide can license realms)
 
@@ -109,7 +111,7 @@ On Windows, run the init script from Git Bash as `bash init/tcinit.sh`. `npm run
 | Server token check | `verifyTideCloakToken(tidecloak.json, …)` | The same SDK function, against a simulated adapter config with an embedded key |
 | Decrypt check | Tide network threshold-decrypts only for a token holding `_tide_<tag>.selfdecrypt` | `/api/sim-tide` releases a per-field data key only for a signed token holding that role, and returns the same refusal text ("vendordecrypt voucher not allowed"). Values are encrypted and decrypted in the browser and never reach the server. |
 | Keys | Never whole: threshold shards across the network | One whole key in `data/sim-tidecloak.json`, which is exactly what Tide removes |
-| Quorum approvals | Role grants need 2 of 3 admins (QEA) | Not simulated |
+| Quorum approvals | A role change becomes a `PENDING` change request, and each admin approves it in the Tide enclave. It applies at the quorum, `max(1, floor(0.7 × admins))` = 2 of 3. | `/sim-tidecloak/admin`: the same change-request shape (`GRANT_ROLES`, `PENDING` → `APPROVED`), one approval per admin from that admin's own token, applied at 2 of 3. Approvals are recorded, not signed. |
 
 `decryptField` is identical in both modes and always calls `doDecrypt`, so even in simulated mode the address denial comes from the network stand-in's role check, never from app logic. This goes slightly beyond SRS FR-10.2, which only asked for fixed sample values.
 
@@ -119,7 +121,7 @@ On Windows, run the init script from Git Bash as `bash init/tcinit.sh`. `npm run
 - **One agent account per person.**
 - **The leash limits what is decrypted, not where granted values go.** Once the agent opens a field, the app relies on the agent only putting it in the on-screen form.
 - **2 of 3 is a plain majority.** Requiring the owner's own vote is future Forseti work.
-- **Simulated mode is not Tide.** No threshold cryptography, no enclave sign-in, no quorum, and the stand-in's key sits whole on disk. Every page is labelled, and denials in this mode are not real Tide responses.
+- **Simulated mode is not Tide.** No threshold cryptography, no enclave sign-in, approvals that are recorded rather than signed, and the stand-in's key sits whole on disk. Every page is labelled, and denials in this mode are not real Tide responses.
 - **Bearer tokens.** The generator template leaves DPoP off. Tide recommends DPoP for production.
 
 ## Project layout
@@ -134,7 +136,8 @@ leashed-id/
   app/api/map-labels/route.ts  LLM label → tag mapping (labels only), keyword fallback
   lib/decryptField.ts          The leash check: always doDecrypt, never a role pre-check
   lib/tide.tsx                 useTideCloak(): the real SDK, or the simulated stand-in
-  lib/simTide.ts               Simulated TideCloak + network (server side)
+  lib/simTide.ts               Simulated TideCloak, network and quorum approvals (server side)
+  app/sim-tidecloak/admin/     Simulated admin console: change requests, 2 of 3 approvals
 ```
 
 All ID data in this project is fake (`NGUYỄN VĂN MẪU`, `000000000001`).

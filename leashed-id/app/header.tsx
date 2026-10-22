@@ -44,6 +44,7 @@ export default function Header() {
             <Link href="/agent">Agent console</Link>
             <Link href="/hotel?reveal=1">Hotel form</Link>
             <Link href="/vault">Vault</Link>
+            {TIDE_MODE === 'simulated' && <Link href="/sim-tidecloak/admin">Approvals</Link>}
           </nav>
           <div className="who">
             {isInitializing ? null : authenticated ? (

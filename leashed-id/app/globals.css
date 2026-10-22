@@ -70,7 +70,7 @@ h2 { font-size: 1.3rem; margin: 0 0 6px; }
 .field { display: block; margin-bottom: 14px; }
 .field > span { display: block; font-size: 0.9rem; font-weight: 600; margin-bottom: 4px; }
 .field > span small { font-weight: 400; color: var(--muted); }
-.field input, .field textarea {
+.field input, .field textarea, .field select {
   width: 100%; padding: 9px 11px; border: 1px solid #cbd5e1; border-radius: 8px;
   font: inherit; background: var(--surface); color: var(--text);
 }

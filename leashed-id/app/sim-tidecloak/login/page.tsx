@@ -58,7 +58,10 @@ export default function SimLoginPage() {
           </button>
         </form>
         {error && <p className="text-denied">{error}</p>}
-        <p className="muted small">Use <strong>agent</strong> for the AI agent&apos;s account.</p>
+        <p className="muted small">
+          Use <strong>agent</strong> for the AI agent&apos;s account, or <strong>admin1</strong>, <strong>admin2</strong>,{' '}
+          <strong>admin3</strong> for the realm admins who approve role changes.
+        </p>
       </div>
     </main>
   )
