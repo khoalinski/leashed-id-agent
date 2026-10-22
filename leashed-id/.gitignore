@@ -1,0 +1,13 @@
+# dependencies and build output
+node_modules/
+.next/
+next-env.d.ts
+*.tsbuildinfo
+
+# secrets: only the example files are committed
+.env
+.env.*
+!.env.example
+
+# ciphertext vault (FR-3.3)
+data/
