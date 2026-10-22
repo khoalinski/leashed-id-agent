@@ -20,6 +20,38 @@
                 "description": "Tide E2EE self-decrypt message data"
             },
             {
+                "name": "_tide_cccd_name.selfencrypt",
+                "description": "Tide E2EE self-encrypt CCCD full name"
+            },
+            {
+                "name": "_tide_cccd_name.selfdecrypt",
+                "description": "Tide E2EE self-decrypt CCCD full name"
+            },
+            {
+                "name": "_tide_cccd_dob.selfencrypt",
+                "description": "Tide E2EE self-encrypt CCCD date of birth"
+            },
+            {
+                "name": "_tide_cccd_dob.selfdecrypt",
+                "description": "Tide E2EE self-decrypt CCCD date of birth"
+            },
+            {
+                "name": "_tide_cccd_number.selfencrypt",
+                "description": "Tide E2EE self-encrypt CCCD ID number"
+            },
+            {
+                "name": "_tide_cccd_number.selfdecrypt",
+                "description": "Tide E2EE self-decrypt CCCD ID number"
+            },
+            {
+                "name": "_tide_cccd_address.selfencrypt",
+                "description": "Tide E2EE self-encrypt CCCD permanent address"
+            },
+            {
+                "name": "_tide_cccd_address.selfdecrypt",
+                "description": "Tide E2EE self-decrypt CCCD permanent address (in no default composite: granting it needs quorum approval)"
+            },
+            {
                 "name": "default-roles-nextjs-test",
                 "description": "${role_default-roles}",
                 "composite": true,
@@ -27,7 +59,14 @@
                     "realm": [
                         "_tide_message.selfencrypt",
                         "_tide_message.selfdecrypt",
-                        "appUser"
+                        "appUser",
+                        "_tide_cccd_name.selfencrypt",
+                        "_tide_cccd_dob.selfencrypt",
+                        "_tide_cccd_number.selfencrypt",
+                        "_tide_cccd_address.selfencrypt",
+                        "_tide_cccd_name.selfdecrypt",
+                        "_tide_cccd_dob.selfdecrypt",
+                        "_tide_cccd_number.selfdecrypt"
                     ]
                 }
             }

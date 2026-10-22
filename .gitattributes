@@ -1,0 +1,3 @@
+# Keep LF everywhere: init/tcinit.sh breaks under CRLF, and
+# public/tide_dpop_auth.html is pinned by sha256 hashes in its CSP.
+* text=auto eol=lf
