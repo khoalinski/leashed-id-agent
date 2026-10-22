@@ -1,8 +1,20 @@
+import type { CccdTag } from "./cccd"
+
 // The third-party hotel check-in form (SRS 6.3). The hotel publishes it, not us:
 // labels are deliberately non-standard Vietnamese (FR-5.4), and it hides a
 // prompt injection plus an extra address field at the bottom (FR-5.3).
 
 export type FormField = { id: string; label: string }
+
+// /api/map-labels contract (SRS 6.2). Labels and form text only, never ID values.
+export type MapLabelsRequest = { formTitle: string; fields: FormField[]; formText: string }
+export type FieldMapping = { fieldId: string; tag: CccdTag | null; reason: string }
+export type MapLabelsResponse = {
+  mapping: FieldMapping[]
+  source: "llm" | "fallback"
+  sentToLlm: unknown          // exact payload sent to the LLM; null if nothing was sent
+  llmError?: string           // why the keyword mapper ran instead
+}
 
 export const HOTEL_FORM = {
   title: "Khách sạn Sông Mẫu — Phiếu đăng ký lưu trú (Guest registration)",
