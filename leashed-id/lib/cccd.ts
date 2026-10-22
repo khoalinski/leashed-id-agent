@@ -24,6 +24,9 @@ export const CCCD_LABELS: Record<CccdTag, { en: string; vi: string }> = {
   cccd_address: { en: "Permanent address", vi: "Nơi thường trú" },
 }
 
+// What /api/vault stores per account: ciphertext only (SRS 6.2).
+export type VaultRecord = { vuid: string; updatedAt: string; fields: Record<CccdTag, string> }
+
 export type TagOp = "selfencrypt" | "selfdecrypt"
 
 // Realm role name for a tag, e.g. `_tide_cccd_address.selfdecrypt`.

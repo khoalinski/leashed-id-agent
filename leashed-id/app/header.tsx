@@ -1,8 +1,29 @@
 'use client'
 
 import Link from 'next/link'
+import type { ReactNode } from 'react'
 import { TIDE_MODE } from '@/lib/cccd'
 import { useTideCloak } from '@/lib/tide'
+
+// /agent and /vault: only usable when authenticated, otherwise a Log in button (FR-1.2).
+export function LoginGate({ title, children }: { title: string; children: ReactNode }) {
+  const { authenticated, isInitializing, login } = useTideCloak()
+  if (isInitializing) {
+    return <main className="page"><p className="muted">Checking your session…</p></main>
+  }
+  if (!authenticated) {
+    return (
+      <main className="page narrow">
+        <div className="card">
+          <h1>{title}</h1>
+          <p className="muted">Log in to use this page.</p>
+          <button className="btn" onClick={() => login()}>Log in</button>
+        </div>
+      </main>
+    )
+  }
+  return <>{children}</>
+}
 
 // Every page: the simulated-mode banner (FR-10.3) and who is logged in (FR-1.3).
 export default function Header() {
