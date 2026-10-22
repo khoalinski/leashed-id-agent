@@ -1,14 +1,13 @@
 import type { Metadata } from 'next'
 import type { ReactNode } from 'react'
-import {
-  TideCloakProvider
-} from '@tidecloak/nextjs'
-import tcConfig from '../tidecloak.json'
+import { TideProvider } from '@/lib/tide'
+import Header from './header'
+import './globals.css'
 
 
 export const metadata: Metadata = {
-  title: 'My Tidecloak App',
-  description: 'A Next.js starter with Tidecloak',
+  title: 'Leashed ID Agent',
+  description: 'Hand ID paperwork to an AI agent on a leash the Tide network enforces.',
 }
 
 interface RootLayoutProps {
@@ -19,9 +18,11 @@ export default function RootLayout({ children }: RootLayoutProps) {
   return (
     <html lang="en">
       <body>
-        <TideCloakProvider config={tcConfig}>
+        {/* TideCloakProvider in real mode, the simulated stand-in otherwise (lib/tide.tsx) */}
+        <TideProvider>
+          <Header />
           {children}
-        </TideCloakProvider>
+        </TideProvider>
       </body>
     </html>
   )

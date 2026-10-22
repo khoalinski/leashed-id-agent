@@ -1,6 +1,6 @@
 'use client'
 
-import { useTideCloak } from '@tidecloak/nextjs'
+import { useTideCloak } from '@/lib/tide'
 import type { TidecloakConfig } from '@tidecloak/nextjs/server'
 import { useState, useCallback, useEffect } from 'react'
 import rawConfig from "../../tidecloak.json"

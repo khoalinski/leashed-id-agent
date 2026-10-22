@@ -1,7 +1,7 @@
 'use client'
 
 import { useCallback, type CSSProperties } from 'react'
-import { useTideCloak } from '@tidecloak/nextjs'
+import { useTideCloak } from '@/lib/tide'
 import { useRouter } from 'next/navigation'
 import { useEffect } from 'react'
 

@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { useTideCloak } from '@tidecloak/nextjs';
+import { useTideCloak } from '@/lib/tide';
 
 export default function RedirectPage() {
   const { authenticated, isInitializing, logout } = useTideCloak()
@@ -30,7 +30,7 @@ export default function RedirectPage() {
 
   useEffect(() => {
     if (!isInitializing) {
-      router.push(authenticated ? '/home' : '/')
+      router.push(authenticated ? '/agent' : '/')
     }
   }, [authenticated, isInitializing, router])
 
