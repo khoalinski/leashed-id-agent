@@ -56,9 +56,10 @@ function decodeJwt(token: string): Record<string, any> | null {
 
 type EncryptItem = { data: string; tags: string[] }
 type DecryptItem = { encrypted: string; tags: string[] }
-type SimEnvelope = { tag: string; wk: string; iv: string; ct: string }
 
-const ENVELOPE_PREFIX = 'simtide1.'
+// Simulated ciphertext: simtide1.<ciphertext>.<iv>.<wrapped data key>.<tag>
+// (ciphertext first, so the FR-2.4 preview differs per field).
+const ENVELOPE_PREFIX = 'simtide1'
 
 // Every refusal comes back from the simulated network as the thrown error's message.
 async function callSimNetwork(token: string | null, body: object): Promise<Record<string, string>> {
@@ -85,25 +86,18 @@ async function simEncryptItem(token: string | null, { data, tags }: EncryptItem)
   const key = await crypto.subtle.importKey('raw', fromB64(dek), 'AES-GCM', false, ['encrypt'])
   const iv = crypto.getRandomValues(new Uint8Array(12))
   const ct = await crypto.subtle.encrypt({ name: 'AES-GCM', iv, additionalData: utf8.encode(tag) }, key, utf8.encode(String(data)))
-  const envelope: SimEnvelope = { tag, wk: wrapped, iv: toB64(iv), ct: toB64(ct) }
-  return ENVELOPE_PREFIX + btoa(JSON.stringify(envelope))
+  return [ENVELOPE_PREFIX, toB64(ct), toB64(iv), wrapped, tag].join('.')
 }
 
 async function simDecryptItem(token: string | null, { encrypted, tags }: DecryptItem): Promise<string> {
-  let envelope: SimEnvelope
-  try {
-    if (!encrypted.startsWith(ENVELOPE_PREFIX)) throw new Error()
-    envelope = JSON.parse(atob(encrypted.slice(ENVELOPE_PREFIX.length)))
-  } catch {
+  const parts = String(encrypted).split('.')
+  if (parts.length !== 5 || parts[0] !== ENVELOPE_PREFIX) {
     throw new Error('SIMULATED Tide network: not a simulated Tide ciphertext')
   }
-  const { dek } = await callSimNetwork(token, { op: 'decrypt', tag: envelope.tag, tags, wrapped: envelope.wk })
+  const [, ct, iv, wrapped, tag] = parts
+  const { dek } = await callSimNetwork(token, { op: 'decrypt', tag, tags, wrapped })
   const key = await crypto.subtle.importKey('raw', fromB64(dek), 'AES-GCM', false, ['decrypt'])
-  const pt = await crypto.subtle.decrypt(
-    { name: 'AES-GCM', iv: fromB64(envelope.iv), additionalData: utf8.encode(envelope.tag) },
-    key,
-    fromB64(envelope.ct),
-  )
+  const pt = await crypto.subtle.decrypt({ name: 'AES-GCM', iv: fromB64(iv), additionalData: utf8.encode(tag) }, key, fromB64(ct))
   return new TextDecoder().decode(pt)
 }
 
